@@ -30,7 +30,7 @@ RUN openssl req -x509 -nodes -days 365 \
 
 # Copy config and site content
 COPY default.conf /etc/nginx/sites-available/default
-COPY content/* /var/www/html/
+COPY content/ /var/www/html/
 
 # Make location for logs
 RUN mkdir -p /var/log/nginx && \
