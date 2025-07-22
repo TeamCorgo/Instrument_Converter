@@ -6,7 +6,7 @@ LABEL maintainer="NMBON Hunter Salazar <Hunter@corgo.org>"
 
 # Install OS Features
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends nginx nano openssl tzdata && \
+    apt-get install -y --no-install-recommends nginx curl nano openssl tzdata && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the timezone to Denver (Mountain Time)
@@ -38,7 +38,7 @@ RUN mkdir -p /var/log/nginx && \
 
 # Health check for Nginx
 HEALTHCHECK --start-period=60s --interval=300s --timeout=60s --retries=3 \
-    CMD curl -k -f http://127.0.0.1:443 || exit 1
+    CMD curl -k -f https://127.0.0.1:443 || exit 1
 
 # Make sure NGINX doesn't daemonize
 CMD ["nginx", "-g", "daemon off;"]
