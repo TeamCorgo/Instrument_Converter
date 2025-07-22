@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Any to DMP Converter</title>
+    <style>
+        #drop-zone {
+            width: 100%;
+            height: 200px;
+            border: 2px dashed #007BFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            color: #007BFF;
+            font-size: 18px;
+        }
+    </style>
+
+    <script src="./js/jszip.min.js"></script>
+    <script src="./js/tfi_format.js"></script>
+    <script src="./js/dmp_format.js"></script>
+    <script src="./js/opm_format.js"></script>
+    <script src="./js/tools.js"></script>
+</head>
+<body>
+    <h1>TFI to DMP Converter</h1>
+    <div id="drop-zone">Drag and drop a file(s) to convert</div>
+    <input type="file" id="file-input" webkitdirectory directory multiple style="display:none;">
+    <button id="select-folder">Select Folder to convert</button>
+    <button id="download-zip" style="display:none;">Download All as ZIP</button>
+    <ul id="file-list"></ul>
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const selectFolder = document.getElementById('select-folder');
+        const downloadZipButton = document.getElementById('download-zip');
+        let zip = new JSZip();
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'green';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#007BFF';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const items = e.dataTransfer.items;
+            handleFiles(items);
+        });
+
+        selectFolder.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        async function handleFiles(fileList) {
+            for (const item of fileList) {
+                const file = item instanceof File ? item : item.getAsFile();
+                if (!file) continue;
+
+                try {
+                    if (file.name.toLowerCase().endsWith('.tfi')) {
+                        const tfiData = await file.arrayBuffer();
+                        const dmpOut = processTFI(new Uint8Array(tfiData));
+                        addToZip(dmpOut, file.name.replace('.tfi', '.dmp'));
+                    } else if (file.name.toLowerCase().endsWith('.dmp')) {
+                        const dmpData = await file.arrayBuffer();
+                        const dmpOut = processDMP(new Uint8Array(dmpData));
+                        addToZip(dmpOut, file.name.replace('.dmp', '.dmp'));
+                    } else if (file.name.toLowerCase().endsWith('.opm')) {
+                        const opmData = await file.arrayBuffer();
+                        const opmOut = readOPMFile(opmData);
+                        for (const instrument of opmOut) {
+                            const dmpOut = processOPM(instrument);
+                            addToZip(dmpOut, `${instrument.name}.dmp`);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Error processing file: ${file.name}`, err);
+                }
+            }
+        }
+
+        function processTFI(file) {  
+            tfi = new TFI(file);
+            dmp = convertTFItoDMP(tfi);
+            return dmp.toUint8Array();
+        }
+
+        function processDMP(file) {
+            dmp = new DMP(file);
+            // Check if the DMP is OPM and convert to OPN if needed
+            if (isOPMFormat(dmp)){
+                dmp = convertSystem(dmp);
+            }
+            return dmp.toUint8Array();
+        }
+
+        function processOPM(file) {
+            dmp = convertOPMtoDMP(file);
+            // Check if the DMP is OPM and convert to OPN if needed
+            if (isOPMFormat(dmp)){
+                dmp = convertSystem(dmp);
+            }
+            return dmp.toUint8Array();
+        }
+
+        function addToZip(dmpData, outputFilename) {
+            const randomPrefix = Array.from({ length: 5 }, () =>
+                Math.random().toString(36)[2]
+            ).join('');
+
+            const prefixedFilename = `${randomPrefix}___${outputFilename}`;
+
+            // Convert Uint8Array to ArrayBuffer (if not already)
+            const arrayBuffer = dmpData.buffer.slice(dmpData.byteOffset, dmpData.byteOffset + dmpData.byteLength);
+
+            zip.file(prefixedFilename, arrayBuffer); // Use ArrayBuffer
+
+            const listItem = document.createElement('li');
+            listItem.textContent = `Prepared: ${prefixedFilename}`;
+            fileList.appendChild(listItem);
+
+            downloadZipButton.style.display = 'block';
+        }
+
+
+        downloadZipButton.addEventListener('click', () => {
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = 'TFi2DMP.zip';
+                link.click(); // Trigger the download
+            });
+        });
+    </script>
+</body>
+</html>

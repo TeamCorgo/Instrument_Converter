@@ -1,0 +1,10 @@
+{
+	"files.exclude": {
+		"**/*.code-workspace": true,
+	},
+	"editor.formatOnSave": true,
+	"editor.rulers": [
+		88
+	],
+	"editor.fontSize": 18,
+}
